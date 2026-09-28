@@ -26,6 +26,8 @@ import math
 from pathlib import Path as _FsPath
 from typing import Any, Literal
 
+from pydantic import Field
+
 from dimos.control.benchmarking.tuning import TuningConfig
 from dimos.control.task import (
     BaseControlTask,
@@ -107,11 +109,6 @@ class HolonomicPoseFollowerTask(BaseControlTask):
     """Progress-indexed holonomic full-pose tracker as a passive ControlTask."""
 
     def __init__(self, name: str, config: HolonomicPoseFollowerTaskConfig) -> None:
-        if len(config.joint_names) != 3:
-            raise ValueError(
-                f"HolonomicPoseFollowerTask '{name}' needs 3 joints (vx, vy, wz), "
-                f"got {len(config.joint_names)}"
-            )
         self._name = name
         self._config = config
         self._joint_names_list = list(config.joint_names)
@@ -515,6 +512,8 @@ class HolonomicPoseFollowerTask(BaseControlTask):
 
 
 class HolonomicPoseFollowerTaskParams(BaseConfig):
+    # Exactly 3 joints: vx, vy, wz.
+    joint_names: list[str] = Field(min_length=3, max_length=3)
     artifact_path: str = DEFAULT_ARTIFACT_PATH
     speed: float = 0.5
     lookahead: float = 0.25
@@ -528,11 +527,13 @@ class HolonomicPoseFollowerTaskParams(BaseConfig):
 
 
 def create_task(cfg: Any, hardware: Any) -> HolonomicPoseFollowerTask:
-    params = HolonomicPoseFollowerTaskParams.model_validate(cfg.params)
+    params = HolonomicPoseFollowerTaskParams.model_validate(
+        {**dict(cfg.params), "joint_names": list(cfg.joint_names)}
+    )
     return HolonomicPoseFollowerTask(
         cfg.name,
         HolonomicPoseFollowerTaskConfig(
-            joint_names=cfg.joint_names,
+            joint_names=params.joint_names,
             priority=cfg.priority,
             speed=params.speed,
             lookahead=params.lookahead,

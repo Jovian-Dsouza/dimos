@@ -21,6 +21,7 @@ from __future__ import annotations
 import math
 from types import SimpleNamespace
 
+from pydantic import ValidationError
 import pytest
 
 from dimos.control.benchmarking.paths import (
@@ -376,3 +377,12 @@ def test_configure_refused_while_active_and_accepts_unknown_kwargs():
     assert task._config.speed == 0.7
     task.start_path(straight_rotate(), _pose())
     assert not task.configure(speed=0.3)
+
+
+@pytest.mark.parametrize("joint_names", [[], _JOINTS[:2], [*_JOINTS, "go2/extra"]])
+def test_create_task_rejects_joint_count_other_than_three(joint_names):
+    with pytest.raises(ValidationError, match="joint_names"):
+        create_task(
+            SimpleNamespace(name="holo", joint_names=joint_names, priority=10, params={}),
+            None,
+        )

@@ -19,6 +19,7 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
+from pydantic import ValidationError
 import pytest
 
 from dimos.control.benchmarking.paths import circle, straight_line
@@ -295,3 +296,18 @@ def test_path_with_real_headings_is_untouched():
 def test_short_path_returned_as_is():
     one = _ident_path([(0, 0)])
     assert _with_tangent_headings(one) is one
+
+
+@pytest.mark.parametrize("joint_names", [[], _JOINTS[:2], [*_JOINTS, "go2/extra"]])
+def test_create_task_rejects_joint_count_other_than_three(joint_names, artifact_path):
+    path, _ = artifact_path
+    with pytest.raises(ValidationError, match="joint_names"):
+        create_task(
+            SimpleNamespace(
+                name="rpp_follower",
+                joint_names=joint_names,
+                priority=10,
+                params={"artifact_path": path},
+            ),
+            None,
+        )

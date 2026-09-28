@@ -13,13 +13,16 @@
 # limitations under the License.
 
 import math
+from types import SimpleNamespace
 
+from pydantic import ValidationError
 import pytest
 
 from dimos.control.task import CoordinatorState, JointStateSnapshot
 from dimos.control.tasks.planar_base_trajectory_task.planar_base_trajectory_task import (
     PlanarBaseTrajectoryTask,
     PlanarBaseTrajectoryTaskConfig,
+    create_task,
 )
 from dimos.control.tasks.trajectory_task.trajectory_task import TrajectoryExecutionStatus
 from dimos.msgs.trajectory_msgs.JointTrajectory import JointTrajectory
@@ -237,3 +240,20 @@ def test_lost_odometry_aborts_and_stops_the_base(loss, goal):
 
     assert task.get_status().state == TrajectoryState.ABORTED
     assert [o for o in outputs if o is not None][-1].velocities == ZERO
+
+
+def test_create_task_wires_validated_joint_names():
+    task = create_task(
+        SimpleNamespace(name="base_traj", joint_names=JOINTS, priority=10, params={}),
+        None,
+    )
+    assert task._joints == JOINTS
+
+
+@pytest.mark.parametrize("joint_names", [[], JOINTS[:2], [*JOINTS, "base/extra"]])
+def test_create_task_rejects_joint_count_other_than_three(joint_names):
+    with pytest.raises(ValidationError, match="joint_names"):
+        create_task(
+            SimpleNamespace(name="base_traj", joint_names=joint_names, priority=10, params={}),
+            None,
+        )
