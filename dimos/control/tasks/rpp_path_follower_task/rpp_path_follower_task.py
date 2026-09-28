@@ -218,8 +218,11 @@ class RPPPathFollowerTaskParams(BaseConfig):
 
 
 def create_task(cfg: Any, hardware: Any) -> RPPPathFollowerTask:
+    raw = dict(cfg.params)
+    if "joint_names" in raw:
+        raise ValueError("joint_names must be set on TaskConfig, not in params")
     params = RPPPathFollowerTaskParams.model_validate(
-        {**dict(cfg.params), "joint_names": list(cfg.joint_names)}
+        {**raw, "joint_names": list(cfg.joint_names)}
     )
     return RPPPathFollowerTask(
         cfg.name,

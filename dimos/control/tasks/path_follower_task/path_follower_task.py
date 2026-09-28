@@ -137,6 +137,11 @@ class PathFollowerTask(BaseControlTask):
         global_config: GlobalConfig,
         external_profile_cap: PathSpeedCapProtocol | None = None,
     ) -> None:
+        if len(config.joint_names) != 3:
+            raise ValueError(
+                f"PathFollowerTask '{name}' needs 3 joints (vx, vy, wz), "
+                f"got {len(config.joint_names)}"
+            )
         self._name = name
         self._config = config
         self._joint_names_list = list(config.joint_names)
@@ -637,8 +642,13 @@ class PathFollowerTaskParams(BaseConfig):
 
 
 def create_task(cfg: Any, hardware: Any) -> PathFollowerTask:
+    raw = dict(cfg.params)
+    # joint_names lives on TaskConfig; smuggling it via params used to fail
+    # (extra=forbid) before this field was added to Params.
+    if "joint_names" in raw:
+        raise ValueError("joint_names must be set on TaskConfig, not in params")
     params = PathFollowerTaskParams.model_validate(
-        {**dict(cfg.params), "joint_names": list(cfg.joint_names)}
+        {**raw, "joint_names": list(cfg.joint_names)}
     )
     return PathFollowerTask(
         cfg.name,

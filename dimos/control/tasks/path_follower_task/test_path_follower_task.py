@@ -202,3 +202,26 @@ def test_create_task_rejects_joint_count_other_than_three(joint_names):
             SimpleNamespace(name="t", joint_names=joint_names, priority=20, params={}),
             None,
         )
+
+
+@pytest.mark.parametrize("joint_names", [[], _JOINTS[:2], [*_JOINTS, "go2/extra"]])
+def test_constructor_rejects_joint_count_other_than_three(joint_names):
+    with pytest.raises(ValueError, match="needs 3 joints"):
+        PathFollowerTask(
+            "t",
+            PathFollowerTaskConfig(joint_names=joint_names, control_frequency=10.0),
+            global_config=_gc,
+        )
+
+
+def test_create_task_rejects_joint_names_in_params():
+    with pytest.raises(ValueError, match="TaskConfig, not in params"):
+        create_task(
+            SimpleNamespace(
+                name="t",
+                joint_names=_JOINTS,
+                priority=20,
+                params={"joint_names": _JOINTS[:2]},
+            ),
+            None,
+        )

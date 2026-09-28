@@ -109,6 +109,11 @@ class HolonomicPoseFollowerTask(BaseControlTask):
     """Progress-indexed holonomic full-pose tracker as a passive ControlTask."""
 
     def __init__(self, name: str, config: HolonomicPoseFollowerTaskConfig) -> None:
+        if len(config.joint_names) != 3:
+            raise ValueError(
+                f"HolonomicPoseFollowerTask '{name}' needs 3 joints (vx, vy, wz), "
+                f"got {len(config.joint_names)}"
+            )
         self._name = name
         self._config = config
         self._joint_names_list = list(config.joint_names)
@@ -527,8 +532,11 @@ class HolonomicPoseFollowerTaskParams(BaseConfig):
 
 
 def create_task(cfg: Any, hardware: Any) -> HolonomicPoseFollowerTask:
+    raw = dict(cfg.params)
+    if "joint_names" in raw:
+        raise ValueError("joint_names must be set on TaskConfig, not in params")
     params = HolonomicPoseFollowerTaskParams.model_validate(
-        {**dict(cfg.params), "joint_names": list(cfg.joint_names)}
+        {**raw, "joint_names": list(cfg.joint_names)}
     )
     return HolonomicPoseFollowerTask(
         cfg.name,

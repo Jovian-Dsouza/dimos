@@ -257,3 +257,25 @@ def test_create_task_rejects_joint_count_other_than_three(joint_names):
             SimpleNamespace(name="base_traj", joint_names=joint_names, priority=10, params={}),
             None,
         )
+
+
+@pytest.mark.parametrize("joint_names", [[], JOINTS[:2], [*JOINTS, "base/extra"]])
+def test_constructor_rejects_joint_count_other_than_three(joint_names):
+    with pytest.raises(ValueError, match="needs 3 joints"):
+        PlanarBaseTrajectoryTask(
+            "base_traj",
+            PlanarBaseTrajectoryTaskConfig(joint_names=joint_names),
+        )
+
+
+def test_create_task_rejects_joint_names_in_params():
+    with pytest.raises(ValueError, match="TaskConfig, not in params"):
+        create_task(
+            SimpleNamespace(
+                name="base_traj",
+                joint_names=JOINTS,
+                priority=10,
+                params={"joint_names": JOINTS[:2]},
+            ),
+            None,
+        )

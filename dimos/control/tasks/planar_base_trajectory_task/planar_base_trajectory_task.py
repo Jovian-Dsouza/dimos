@@ -81,6 +81,11 @@ class PlanarBaseTrajectoryTask(BaseControlTask):
     """
 
     def __init__(self, name: str, config: PlanarBaseTrajectoryTaskConfig) -> None:
+        if len(config.joint_names) != 3:
+            raise ValueError(
+                f"PlanarBaseTrajectoryTask '{name}' needs 3 joints (vx, vy, wz), "
+                f"got {len(config.joint_names)}"
+            )
         self._name = name
         self._config = config
         self._joints = list(config.joint_names)
@@ -366,8 +371,11 @@ class PlanarBaseTrajectoryTaskParams(BaseConfig):
 
 
 def create_task(cfg: Any, hardware: Any) -> PlanarBaseTrajectoryTask:
+    raw = dict(cfg.params)
+    if "joint_names" in raw:
+        raise ValueError("joint_names must be set on TaskConfig, not in params")
     params = PlanarBaseTrajectoryTaskParams.model_validate(
-        {**dict(cfg.params), "joint_names": list(cfg.joint_names)}
+        {**raw, "joint_names": list(cfg.joint_names)}
     )
     return PlanarBaseTrajectoryTask(
         cfg.name,

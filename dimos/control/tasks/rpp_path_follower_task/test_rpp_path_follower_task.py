@@ -42,6 +42,8 @@ from dimos.control.tasks.rpp_path_follower_task.rpp_path_follower_task import (
     RPPPathFollowerTask,
     create_task,
 )
+from dimos.control.tasks.path_follower_task.path_follower_task import PathFollowerTaskConfig
+from dimos.core.global_config import global_config as _gc
 from dimos.msgs.geometry_msgs.PoseStamped import PoseStamped
 from dimos.msgs.geometry_msgs.Quaternion import Quaternion
 from dimos.msgs.geometry_msgs.Vector3 import Vector3
@@ -308,6 +310,32 @@ def test_create_task_rejects_joint_count_other_than_three(joint_names, artifact_
                 joint_names=joint_names,
                 priority=10,
                 params={"artifact_path": path},
+            ),
+            None,
+        )
+
+
+@pytest.mark.parametrize("joint_names", [[], _JOINTS[:2], [*_JOINTS, "go2/extra"]])
+def test_constructor_rejects_joint_count_other_than_three(joint_names, artifact_path):
+    path, _ = artifact_path
+    with pytest.raises(ValueError, match="needs 3 joints"):
+        RPPPathFollowerTask(
+            "rpp_follower",
+            PathFollowerTaskConfig(joint_names=joint_names),
+            global_config=_gc,
+            artifact_path=path,
+        )
+
+
+def test_create_task_rejects_joint_names_in_params(artifact_path):
+    path, _ = artifact_path
+    with pytest.raises(ValueError, match="TaskConfig, not in params"):
+        create_task(
+            SimpleNamespace(
+                name="rpp_follower",
+                joint_names=_JOINTS,
+                priority=10,
+                params={"artifact_path": path, "joint_names": _JOINTS[:2]},
             ),
             None,
         )
