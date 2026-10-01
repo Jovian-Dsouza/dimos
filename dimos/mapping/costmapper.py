@@ -12,11 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from dataclasses import asdict
+from collections.abc import Mapping
+from dataclasses import asdict, is_dataclass
 import time
+from typing import Any
 
 import numpy as np
-from pydantic import Field
+from pydantic import Field, model_validator
 from reactivex import combine_latest, operators as ops
 
 from dimos.core.core import rpc
@@ -24,8 +26,10 @@ from dimos.core.module import Module, ModuleConfig
 from dimos.core.stream import In, Out
 from dimos.mapping.pointclouds.occupancy import (
     OCCUPANCY_ALGOS,
+    GeneralOccupancyConfig,
     HeightCostConfig,
     OccupancyConfig,
+    SimpleOccupancyConfig,
 )
 from dimos.msgs.nav_msgs.OccupancyGrid import OccupancyGrid
 from dimos.msgs.sensor_msgs.PointCloud2 import PointCloud2
@@ -33,12 +37,41 @@ from dimos.utils.logging_config import setup_logger
 
 logger = setup_logger()
 
+_CONFIG_BY_ALGORITHM: dict[str, type[OccupancyConfig]] = {
+    "height_cost": HeightCostConfig,
+    "general": GeneralOccupancyConfig,
+    "simple": SimpleOccupancyConfig,
+}
+
 
 class Config(ModuleConfig):
     algo: str = "height_cost"
     config: OccupancyConfig = Field(default_factory=HeightCostConfig)
     # for robots that cant see directly below themself
     initial_safe_radius_meters: float = 0.0
+
+    @model_validator(mode="before")
+    @classmethod
+    def select_occupancy_config(cls, values: Any) -> Any:
+        """Restore the algorithm-specific dataclass after blueprint serialization."""
+        if not isinstance(values, Mapping):
+            return values
+
+        selected_config = _CONFIG_BY_ALGORITHM.get(values.get("algo", "height_cost"))
+        if selected_config is None:
+            return values
+
+        config = values.get("config")
+        if config is None or isinstance(config, selected_config):
+            config = selected_config() if config is None else config
+        elif is_dataclass(config):
+            config = selected_config(**asdict(config))
+        elif isinstance(config, Mapping):
+            config = selected_config(**config)
+        else:
+            return values
+
+        return {**values, "config": config}
 
 
 class CostMapper(Module):
