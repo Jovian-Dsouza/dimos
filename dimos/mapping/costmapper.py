@@ -18,7 +18,7 @@ import time
 from typing import Any
 
 import numpy as np
-from pydantic import Field, model_validator
+from pydantic import model_validator
 from reactivex import combine_latest, operators as ops
 
 from dimos.core.core import rpc
@@ -46,7 +46,7 @@ _CONFIG_BY_ALGORITHM: dict[str, type[OccupancyConfig]] = {
 
 class Config(ModuleConfig):
     algo: str = "height_cost"
-    config: OccupancyConfig = Field(default_factory=HeightCostConfig)
+    config: OccupancyConfig | None = None
     # for robots that cant see directly below themself
     initial_safe_radius_meters: float = 0.0
 
@@ -57,7 +57,8 @@ class Config(ModuleConfig):
         if not isinstance(values, Mapping):
             return values
 
-        selected_config = _CONFIG_BY_ALGORITHM.get(values.get("algo", "height_cost"))
+        algorithm = values.get("algo", "height_cost")
+        selected_config = _CONFIG_BY_ALGORITHM.get(algorithm)
         if selected_config is None:
             return values
 
@@ -65,10 +66,16 @@ class Config(ModuleConfig):
         if config is None or isinstance(config, selected_config):
             config = selected_config() if config is None else config
         elif is_dataclass(config):
-            config = selected_config(**asdict(config))
-        elif isinstance(config, Mapping):
-            config = selected_config(**config)
-        else:
+            config = asdict(config)
+
+        if isinstance(config, Mapping):
+            try:
+                config = selected_config(**config)
+            except TypeError as error:
+                raise ValueError(
+                    f"Invalid config for occupancy algorithm {algorithm!r}: {error}"
+                ) from error
+        elif not isinstance(config, selected_config):
             return values
 
         return {**values, "config": config}
@@ -119,7 +126,9 @@ class CostMapper(Module):
     # @timed()  # TODO: fix thread leak in timed decorator
     def _calculate_costmap(self, msg: PointCloud2) -> OccupancyGrid:
         occupancy_function = OCCUPANCY_ALGOS[self.config.algo]
-        grid = occupancy_function(msg, **asdict(self.config.config))
+        config = self.config.config
+        assert config is not None
+        grid = occupancy_function(msg, **asdict(config))
         self._apply_initial_safe_radius(grid)
         return grid
 

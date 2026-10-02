@@ -14,7 +14,11 @@
 
 from dimos.core.coordination.blueprint_config.parser import BlueprintConfigParser
 from dimos.mapping.costmapper import Config, CostMapper
-from dimos.mapping.pointclouds.occupancy import HeightCostConfig
+from dimos.mapping.pointclouds.occupancy import (
+    GeneralOccupancyConfig,
+    HeightCostConfig,
+    SimpleOccupancyConfig,
+)
 
 
 def test_blueprint_parser_preserves_height_cost_config() -> None:
@@ -34,3 +38,21 @@ def test_blueprint_parser_preserves_height_cost_config() -> None:
         can_pass_under=1.7,
         can_climb=0.1,
     )
+
+
+def test_blueprint_parser_applies_general_defaults_to_sparse_config() -> None:
+    blueprint = CostMapper.blueprint(algo="general", config={"min_height": 0.2})
+
+    parsed = BlueprintConfigParser(blueprint).parse(environ={})
+    config = Config(**parsed.module_kwargs(CostMapper.name))
+
+    assert config.config == GeneralOccupancyConfig(min_height=0.2)
+
+
+def test_blueprint_parser_applies_simple_defaults_to_sparse_config() -> None:
+    blueprint = CostMapper.blueprint(algo="simple", config={"closing_iterations": 2})
+
+    parsed = BlueprintConfigParser(blueprint).parse(environ={})
+    config = Config(**parsed.module_kwargs(CostMapper.name))
+
+    assert config.config == SimpleOccupancyConfig(closing_iterations=2)
